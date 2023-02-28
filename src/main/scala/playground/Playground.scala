@@ -2,6 +2,7 @@ package playground
 
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.streaming.StreamingQuery
 
 /**
   * This is a small application that loads some manually inserted rows into a Spark DataFrame.

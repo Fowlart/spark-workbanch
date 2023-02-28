@@ -22,114 +22,41 @@ object DataSources extends App {
     StructField("Origin", StringType)
   ))
 
-  /*
-    Reading a DF:
-    - format
-    - schema or inferSchema = true
-    - path
-    - zero or more options
-   */
-  val carsDF = spark.read
+  val cars = spark.read
     .format("json")
-    .schema(carsSchema) // enforce a schema
-    .option("mode", "failFast") // dropMalformed, permissive (default)
-    .option("path", "src/main/resources/data/cars.json")
-    .load()
-
-  // alternative reading with options map
-  val carsDFWithOptionMap = spark.read
-    .format("json")
-    .options(Map(
-      "mode" -> "failFast",
-      "path" -> "src/main/resources/data/cars.json",
-      "inferSchema" -> "true"
-    ))
-    .load()
-
-  /*
-   Writing DFs
-   - format
-   - save mode = overwrite, append, ignore, errorIfExists
-   - path
-   - zero or more options
-  */
-  carsDF.write
-    .format("json")
-    .mode(SaveMode.Overwrite)
-    .save("src/main/resources/data/cars_dupe.json")
-
-  // JSON flags
-  spark.read
     .schema(carsSchema)
-    .option("dateFormat", "YYYY-MM-dd") // couple with schema; if Spark fails parsing, it will put null
+    .option("mode","failFast") // (dropMalformed/permissive[default])
+    .load("/Users/artur/IdeaProjects/spark-essentials/src/main/resources/data/cars.json")
+  // Writing DFs
+
+  // JSON FLAGS
+  val carsAlt = spark.read
+    .schema(carsSchema)
+    .option("mode","failFast")
+    .option("dateFormat", "YYYY-MM-dd") // works ONLY with schema; if Spark fails parsing, it will put null
     .option("allowSingleQuotes", "true")
     .option("compression", "uncompressed") // bzip2, gzip, lz4, snappy, deflate
     .json("src/main/resources/data/cars.json")
 
-  // CSV flags
-  val stocksSchema = StructType(Array(
-    StructField("symbol", StringType),
-    StructField("date", DateType),
-    StructField("price", DoubleType)
-  ))
-
-  spark.read
-    .schema(stocksSchema)
-    .option("dateFormat", "MMM dd YYYY")
-    .option("header", "true")
-    .option("sep", ",")
-    .option("nullValue", "")
-    .csv("src/main/resources/data/stocks.csv")
-
-  // Parquet
-  carsDF.write
+  // compression 8kb vs 73kb
+  carsAlt.write.format("json")
     .mode(SaveMode.Overwrite)
-    .save("src/main/resources/data/cars.parquet")
+    .option("compression", "gzip")
+    .save("src/main/resources/data/cars_dupe_compressed")
 
-  // Text files
-  spark.read.text("src/main/resources/data/sampleTextFile.txt").show()
+  carsAlt.write.format("json")
+    .mode(SaveMode.Overwrite)
+    .save("src/main/resources/data/cars_dupe")
 
-  // Reading from a remote DB
-  val driver = "org.postgresql.Driver"
-  val url = "jdbc:postgresql://localhost:5432/rtjvm"
-  val user = "docker"
-  val password = "docker"
+  // uncompression
+  val uncompressedCars = spark.read
+    .schema(carsSchema)
+    .option("mode","failFast")
+    .option("dateFormat", "YYYY-MM-dd") // works ONLY with schema; if Spark fails parsing, it will put null
+    .option("compression", "gzip")
+    .json("src/main/resources/data/cars_dupe_compressed")
 
-  val employeesDF = spark.read
-    .format("jdbc")
-    .option("driver", driver)
-    .option("url", url)
-    .option("user", user)
-    .option("password", password)
-    .option("dbtable", "public.employees")
-    .load()
+  println(uncompressedCars.schema.json)
 
-  /**
-    * Exercise: read the movies DF, then write it as
-    * - tab-separated values file
-    * - snappy Parquet
-    * - table "public.movies" in the Postgres DB
-    */
 
-  val moviesDF = spark.read.json("src/main/resources/data/movies.json")
-
-  // TSV
-  moviesDF.write
-    .format("csv")
-    .option("header", "true")
-    .option("sep", "\t")
-    .save("src/main/resources/data/movies.csv")
-
-  // Parquet
-  moviesDF.write.save("src/main/resources/data/movies.parquet")
-
-  // save to DF
-  moviesDF.write
-    .format("jdbc")
-    .option("driver", driver)
-    .option("url", url)
-    .option("user", user)
-    .option("password", password)
-    .option("dbtable", "public.movies")
-    .save()
 }

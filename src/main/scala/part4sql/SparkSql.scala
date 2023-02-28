@@ -47,7 +47,8 @@ object SparkSql extends App {
     .option("dbtable", s"public.$tableName")
     .load()
 
-  def transferTables(tableNames: List[String], shouldWriteToWarehouse: Boolean = false) = tableNames.foreach { tableName =>
+  def transferTables(tableNames: List[String], shouldWriteToWarehouse: Boolean = false) =
+    tableNames.foreach { tableName =>
     val tableDF = readTable(tableName)
     tableDF.createOrReplaceTempView(tableName)
 

@@ -14,92 +14,56 @@ object Aggregations extends App {
     .option("inferSchema", "true")
     .json("src/main/resources/data/movies.json")
 
-
   // counting
-  val genresCountDF = moviesDF.select(count(col("Major_Genre"))) // all the values except null
-  moviesDF.selectExpr("count(Major_Genre)")
+  // filter Dramas
+  println(s"Qty of dramas: ${moviesDF.filter(col("Major_Genre") === "Drama").count()}")
 
-  // counting all
-  moviesDF.select(count("*")) // count all the rows, and will INCLUDE nulls
+  // wrong Dramas filter
+  // moviesDF.select(col("Major_Genre") === "Drama").show()
 
-  // counting distinct
-  moviesDF.select(countDistinct(col("Major_Genre"))).show()
+  val dataFrameWithOnlyOneValue = moviesDF.selectExpr("count(Major_Genre)") // will EXCLUDE nulls
 
-  // approximate count
-  moviesDF.select(approx_count_distinct(col("Major_Genre")))
+  val countOfAllMoviesNullsIncluded = moviesDF.selectExpr("count(*)") // will INCLUDE nulls
 
-  // min and max
-  val minRatingDF = moviesDF.select(min(col("IMDB_Rating")))
-  moviesDF.selectExpr("min(IMDB_Rating)")
+  // separate Genres without nulls
+  // moviesDF.select(countDistinct(col("Major_Genre"))).show()
 
-  // sum
-  moviesDF.select(sum(col("US_Gross")))
-  moviesDF.selectExpr("sum(US_Gross)")
+  // Approximate functions for really huge dataframes
+  //moviesDF.select(count_distinct(col("Major_Genre")))// excludes nulls
+  println(s"distinct.count: ${moviesDF.select(col("Major_Genre")).distinct().count()}") // includes nulls
 
-  // avg
-  moviesDF.select(avg(col("Rotten_Tomatoes_Rating")))
-  moviesDF.selectExpr("avg(Rotten_Tomatoes_Rating)")
+  // moviesDF.select(approx_count_distinct(col("Major_Genre"))).show()
+  // moviesDF.select(min("Production_Budget").as("Minimum of production budget")).show()
+  // moviesDF.select(max("Production_Budget").as("Maximum of production budget")).show()
+  // moviesDF.select(sum("US_Gross").as("summary of us_gross"), avg("US_Gross").as("avg of us_gross")).show()
 
   // data science
-  moviesDF.select(
-    mean(col("Rotten_Tomatoes_Rating")),
-    stddev(col("Rotten_Tomatoes_Rating"))
-  )
-
-  // Grouping
-
-  val countByGenreDF = moviesDF
-    .groupBy(col("Major_Genre")) // includes null
-    .count()  // select count(*) from moviesDF group by Major_Genre
-
-  val avgRatingByGenreDF = moviesDF
-    .groupBy(col("Major_Genre"))
-    .avg("IMDB_Rating")
-
-  val aggregationsByGenreDF = moviesDF
-    .groupBy(col("Major_Genre"))
-    .agg(
-      count("*").as("N_Movies"),
-      avg("IMDB_Rating").as("Avg_Rating")
-    )
-    .orderBy(col("Avg_Rating"))
-
+  moviesDF.select(stddev(col("IMDB_Rating")).as("deviation from avg rating value"),
+    mean(col("IMDB_Rating")),avg(col("IMDB_Rating")))
 
   /**
-    * Exercises
-    *
-    * 1. Sum up ALL the profits of ALL the movies in the DF
-    * 2. Count how many distinct directors we have
-    * 3. Show the mean and standard deviation of US gross revenue for the movies
-    * 4. Compute the average IMDB rating and the average US gross revenue PER DIRECTOR
+     =Grouping=
     */
 
+  val countedByGenre = moviesDF
+    .groupBy(col("Major_Genre")) // INCLUDES nulls
+    .count()
 
-  // 1
-  moviesDF
-    .select((col("US_Gross") + col("Worldwide_Gross") + col("US_DVD_Sales")).as("Total_Gross"))
-    .select(sum("Total_Gross"))
-    .show()
+  val avgByRating = moviesDF.groupBy(col("Major_Genre"))
+    .avg("IMDB_Rating")
 
-  // 2
-  moviesDF
-    .select(countDistinct(col("Director")))
-    .show()
+  // many aggregations
+  val aggregates = moviesDF.groupBy(col("Major_Genre")).agg(
+    count("*").as("count of rows"),
+    avg("IMDB_Rating").as("avg IMDB_Rating"))
+    .orderBy(col("avg IMDB_Rating"))
 
-  // 3
-  moviesDF.select(
-    mean("US_Gross"),
-    stddev("US_Gross")
-  ).show()
+  /** Compute the average IMDB rating and the average US gross revenue PER DIRECTOR */
 
-  // 4
-  moviesDF
-    .groupBy("Director")
-    .agg(
-      avg("IMDB_Rating").as("Avg_Rating"),
-      sum("US_Gross").as("Total_US_Gross")
-    )
-    .orderBy(col("Avg_Rating").desc_nulls_last)
-    .show()
+ val bestDIRECTOR = moviesDF.groupBy(col("Director")).agg(
+    avg("IMDB_Rating").as("avg IMDB_Rating"),
+    avg("US_Gross").as("avg US_Gross")
+  ).orderBy("avg US_Gross")
 
+  bestDIRECTOR.show()
 }
