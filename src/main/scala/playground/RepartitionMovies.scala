@@ -13,8 +13,12 @@ object RepartitionMovies extends App{
     .option("inferSchema", "true")
     .json("src/main/resources/data/movies.json")
 
-  moviesDF.repartition(3)
+  moviesDF
+    .repartition(3)
     .write
     .mode(SaveMode.Overwrite)
     .json("src/main/resources/data/movies_repartitioned")
+
+
+
 }
